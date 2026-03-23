@@ -1,0 +1,16 @@
+[Unit]
+Description=MU-TH-UR 6000 Terminal
+After=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+Environment=ANTHROPIC_API_KEY=your-key-here
+Environment=SDL_VIDEODRIVER=kmsdrm
+WorkingDirectory=/home/pi/mother
+ExecStart=/usr/bin/python3 /home/pi/mother/mother.py --fullscreen
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
