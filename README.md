@@ -2,6 +2,8 @@
 
 A retro-futuristic Raspberry Pi 5 terminal inspired by the MU-TH-UR 6000 computer from Ridley Scott's *Alien* (1979). Features a CRT-style interface with AI conversation (Claude API), YouTube media playback, and hot-switchable screens — all running on a 3.5" display with a custom 3D-printed enclosure.
 
+![Nostromo Prototype v1](case/images/photo_5337326773680673751_y.jpg)
+
 ## Overview
 
 Nostromo is a standalone terminal device built around Raspberry Pi 5 with a WaveShare 3.5" HDMI touchscreen. It combines a sci-fi aesthetic with practical functionality: AI assistant access, media playback, and an immersive boot sequence that recreates the MU-TH-UR 6000 experience.
