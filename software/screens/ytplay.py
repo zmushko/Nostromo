@@ -43,7 +43,7 @@ BOOT_LINES = [
     "",
     "  [ENTER] SEARCH/SELECT  [TAB] EN/RU",
     "  [PGUP/PGDN] SCROLL  [ESC] BACK",
-    "  [CTRL+1/2/3] SWITCH  [CTRL+Q] EXIT",
+    "  [CTRL+1/2/3/4] SWITCH  [CTRL+Q] EXIT",
     "",
     "  PLAYBACK: [SPACE] PAUSE  [Q] STOP",
     "  [LEFT/RIGHT] SEEK  [UP/DOWN] VOLUME",
@@ -317,7 +317,8 @@ class MediaTerminal(BaseTerminal):
     """YouTube search & playback terminal."""
 
     def __init__(self, renderer, logger):
-        super().__init__(renderer, boot_lines=BOOT_LINES, prompt="SEARCH> ")
+        super().__init__(renderer, boot_lines=BOOT_LINES, prompt="SEARCH> ",
+                         history_name="ytplay")
         self.logger = logger
         self.results = []
         self._search_thread = None

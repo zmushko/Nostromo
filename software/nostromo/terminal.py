@@ -1,14 +1,20 @@
 """
 Nostromo Terminal — base terminal engine.
 Boot sequence, text input with wrapping, scrollback, cursor.
+Command history with persistence.
 Subclass or compose to build applications.
 """
 
+import os
 import pygame
 from . import config as cfg
 from . import sound
 from .crt import CRTRenderer
 from .keyboard import KeyboardLayout
+
+
+HISTORY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "history")
+HISTORY_MAX = 100
 
 
 class BaseTerminal:
@@ -20,7 +26,7 @@ class BaseTerminal:
     """
 
     def __init__(self, renderer, boot_lines=None, prompt="INPUT> ",
-                 input_rows=None):
+                 input_rows=None, history_name=None):
         self.renderer = renderer
         self.prompt = prompt
         self.input_rows = input_rows or cfg.INPUT_ROWS
@@ -38,6 +44,14 @@ class BaseTerminal:
         # Input
         self.input_buf = ""
         self.keyboard = KeyboardLayout()
+
+        # Command history
+        self._history_name = history_name
+        self._history = []
+        self._history_idx = -1     # -1 = not browsing history
+        self._history_stash = ""   # saves current input when browsing
+        if history_name:
+            self._load_history()
 
         # Cursor blink
         self.cursor_visible = True
@@ -120,6 +134,84 @@ class BaseTerminal:
         cont_width = cfg.COLS - 2
         return first_width + cont_width * (self.input_rows - 1)
 
+    # ─── Command history ────────────────────────────────────────────────
+
+    def _history_file(self):
+        """Path to history file for this terminal."""
+        if not self._history_name:
+            return None
+        return os.path.join(HISTORY_DIR, f"{self._history_name}.hist")
+
+    def _load_history(self):
+        """Load history from disk."""
+        path = self._history_file()
+        if not path or not os.path.exists(path):
+            return
+        try:
+            with open(path, "r") as f:
+                self._history = [
+                    line.strip() for line in f.readlines()
+                    if line.strip()
+                ][-HISTORY_MAX:]
+        except Exception:
+            pass
+
+    def _save_history(self):
+        """Save history to disk."""
+        path = self._history_file()
+        if not path:
+            return
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                for entry in self._history[-HISTORY_MAX:]:
+                    f.write(entry + "\n")
+        except Exception:
+            pass
+
+    def _history_add(self, query):
+        """Add a query to history (skip duplicates of last entry)."""
+        if not query:
+            return
+        if self._history and self._history[-1] == query:
+            return
+        self._history.append(query)
+        if len(self._history) > HISTORY_MAX:
+            self._history = self._history[-HISTORY_MAX:]
+        self._save_history()
+
+    def _history_up(self):
+        """Navigate to previous history entry."""
+        if not self._history:
+            return
+        if self._history_idx == -1:
+            # Starting to browse — stash current input
+            self._history_stash = self.input_buf
+            self._history_idx = len(self._history) - 1
+        elif self._history_idx > 0:
+            self._history_idx -= 1
+        else:
+            return  # already at oldest
+        self.input_buf = self._history[self._history_idx]
+
+    def _history_down(self):
+        """Navigate to next history entry, or back to stashed input."""
+        if self._history_idx == -1:
+            return  # not browsing
+        if self._history_idx < len(self._history) - 1:
+            self._history_idx += 1
+            self.input_buf = self._history[self._history_idx]
+        else:
+            # Back to current input
+            self._history_idx = -1
+            self.input_buf = self._history_stash
+            self._history_stash = ""
+
+    def _history_reset(self):
+        """Reset history browsing state."""
+        self._history_idx = -1
+        self._history_stash = ""
+
     # ─── Callbacks (override in subclass) ───────────────────────────────
 
     def on_submit(self, query):
@@ -144,6 +236,10 @@ class BaseTerminal:
         for vline in self._wrap_input(self.input_buf):
             self.add_line(vline)
         self.add_line("")
+
+        # Save to history and reset browsing
+        self._history_add(query)
+        self._history_reset()
 
         self.input_buf = ""
         self.on_submit(query)
@@ -177,6 +273,14 @@ class BaseTerminal:
             self.submit()
             return True
 
+        elif event.key == pygame.K_UP:
+            self._history_up()
+            return True
+
+        elif event.key == pygame.K_DOWN:
+            self._history_down()
+            return True
+
         elif event.key == pygame.K_BACKSPACE:
             if self.input_buf:
                 self.input_buf = self.input_buf[:-1]
@@ -184,6 +288,7 @@ class BaseTerminal:
 
         elif event.key == pygame.K_ESCAPE:
             self.input_buf = ""
+            self._history_reset()
             return True
 
         elif event.key == pygame.K_TAB:

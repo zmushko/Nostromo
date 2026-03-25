@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 logs/
+history/
 cookies.txt
 *.orig
 *_orig

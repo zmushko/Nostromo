@@ -84,9 +84,9 @@ def _get_system_info():
     if uptime:
         lines.append(f"  {uptime.upper()}")
 
-    vcore = _run("vcgencmd pmic_read_adc EXT5V_V 2>/dev/null | grep -oP '[0-9.]+'")
+    vcore = _run("vcgencmd pmic_read_adc EXT5V_V 2>/dev/null | awk -F= '{print $2}'")
     if vcore and vcore[0].isdigit():
-        lines.append(f"  EXT5V: {vcore}V")
+        lines.append(f"  EXT5V: {vcore}")
 
     return lines
 
@@ -222,7 +222,7 @@ class SettingsTerminal(BaseTerminal):
         self.add_line("  |  5. DISABLE WIFI             |")
         self.add_line("  |                              |")
         self.add_line("  |  0. BACK                     |")
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("")
 
     def _show_bt_menu(self):

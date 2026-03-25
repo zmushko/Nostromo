@@ -59,8 +59,10 @@ class AIBrain:
 class AITerminal(BaseTerminal):
     """Terminal with Claude API typewriter output."""
 
-    def __init__(self, renderer, brain, logger, boot_lines, prompt):
-        super().__init__(renderer, boot_lines=boot_lines, prompt=prompt)
+    def __init__(self, renderer, brain, logger, boot_lines, prompt,
+                 history_name=None):
+        super().__init__(renderer, boot_lines=boot_lines, prompt=prompt,
+                         history_name=history_name)
         self.brain = brain
         self.logger = logger
 
@@ -224,6 +226,7 @@ class AITerminalScreen(Screen):
         self.terminal = AITerminal(
             renderer, self.brain, self.logger,
             self.boot_lines, self.prompt,
+            history_name=self.log_name,
         )
         print(f"[{self.name}] logging to: {self.logger.filepath}",
               file=sys.stderr)
