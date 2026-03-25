@@ -199,22 +199,22 @@ class SettingsTerminal(BaseTerminal):
 
     def _show_main_menu(self):
         self.state = self.STATE_MAIN
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("  |   NOSTROMO SYSTEM CONFIG     |")
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("  |  1. SYSTEM INFO              |")
         self.add_line("  |  2. WIFI                     |")
         self.add_line("  |  3. BLUETOOTH                |")
         self.add_line("  |                              |")
         self.add_line("  |  0. REFRESH                  |")
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("")
 
     def _show_wifi_menu(self):
         self.state = self.STATE_WIFI
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("  |   WIFI CONFIGURATION         |")
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("  |  1. STATUS                   |")
         self.add_line("  |  2. SCAN NETWORKS            |")
         self.add_line("  |  3. DISCONNECT               |")
@@ -227,16 +227,16 @@ class SettingsTerminal(BaseTerminal):
 
     def _show_bt_menu(self):
         self.state = self.STATE_BT
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("  |   BLUETOOTH CONFIGURATION    |")
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("  |  1. STATUS & DEVICES         |")
         self.add_line("  |  2. SCAN FOR DEVICES         |")
         self.add_line("  |  3. ENABLE BLUETOOTH         |")
         self.add_line("  |  4. DISABLE BLUETOOTH        |")
         self.add_line("  |                              |")
         self.add_line("  |  0. BACK                     |")
-        self.add_line("  +-----------------------------+")
+        self.add_line("  +------------------------------+")
         self.add_line("")
 
     def on_submit(self, query):
