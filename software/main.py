@@ -8,6 +8,7 @@ Screens:
     Ctrl+1  — CLAUDE (AI assistant)
     Ctrl+2  — MU-TH-UR 6000 (ship mainframe)
     Ctrl+3  — MEDIA (YouTube player)
+    Ctrl+4  — CONFIG (system settings)
     Ctrl+Q  — shutdown
 
 Usage:
@@ -26,7 +27,7 @@ if not os.environ.get("ANTHROPIC_API_KEY"):
 from nostromo import app
 from nostromo.manager import ScreenManager
 
-from screens import claude, mother, ytplay
+from screens import claude, mother, ytplay, settings
 
 
 def main():
@@ -38,11 +39,12 @@ def main():
     mgr.add("1", claude.create())
     mgr.add("2", mother.create())
     mgr.add("3", ytplay.create())
+    mgr.add("4", settings.create())
 
     # Start with Claude
     mgr.set_active("1")
 
-    print("[nostromo] ready — Ctrl+1/2/3 switch, Ctrl+Q quit",
+    print("[nostromo] ready — Ctrl+1/2/3/4 switch, Ctrl+Q quit",
           file=sys.stderr)
 
     mgr.run()
