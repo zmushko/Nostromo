@@ -26,12 +26,21 @@ BOOT_LINES = [
 
 
 def _run(cmd, timeout=5):
-    """Run a shell command, return stdout or error string."""
+    """Run a shell command, return stdout or error string.
+    Uses DEVNULL for stdin to prevent interactive hangs.
+    Uses start_new_session so timeout can kill process group.
+    """
     try:
         r = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+            cmd, shell=True,
+            capture_output=True, text=True,
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
         )
         return r.stdout.strip()
+    except subprocess.TimeoutExpired:
+        return ""
     except Exception as e:
         return f"ERROR: {e}"
 
@@ -124,15 +133,22 @@ def _get_wifi_networks():
     return sorted(networks, key=lambda x: int(x[1]) if x[1].isdigit() else 0, reverse=True)
 
 
+def _bt_cmd(cmd, timeout=3):
+    """Run a single bluetoothctl command non-interactively."""
+    full = f"echo '{cmd}' | bluetoothctl 2>/dev/null"
+    return _run(full, timeout=timeout)
+
+
 def _get_bt_info():
     """Get Bluetooth status and paired devices."""
     lines = []
 
-    powered = _run("bluetoothctl show | grep Powered | awk '{print $2}'")
-    lines.append(f"  BLUETOOTH: {'ON' if powered == 'yes' else 'OFF'}")
+    raw = _bt_cmd("show")
+    powered = "ON" if "Powered: yes" in raw else "OFF"
+    lines.append(f"  BLUETOOTH: {powered}")
 
-    paired = _run("bluetoothctl devices Paired")
-    if paired:
+    paired = _run("bluetoothctl devices Paired", timeout=3)
+    if paired and not paired.startswith("ERROR"):
         lines.append("")
         lines.append("  PAIRED DEVICES:")
         for line in paired.split("\n"):
@@ -141,11 +157,16 @@ def _get_bt_info():
                 if len(parts) >= 3:
                     mac = parts[1]
                     name = parts[2]
-                    info = _run(f"bluetoothctl info {mac} | grep Connected | awk '{{print $2}}'")
-                    status = "[*]" if info == "yes" else "[ ]"
-                    battery = _run(f"bluetoothctl info {mac} | grep Battery | grep -oP '[0-9]+'")
-                    bat_str = f" {battery}%" if battery else ""
-                    lines.append(f"  {status} {name}{bat_str}")
+                    info = _bt_cmd(f"info {mac}")
+                    connected = "[*]" if "Connected: yes" in info else "[ ]"
+                    bat_str = ""
+                    for il in info.split("\n"):
+                        if "Battery" in il and "%" in il:
+                            import re
+                            m = re.search(r'(\d+)', il.split("Battery")[-1])
+                            if m:
+                                bat_str = f" {m.group(1)}%"
+                    lines.append(f"  {connected} {name}{bat_str}")
                     lines.append(f"      {mac}")
     else:
         lines.append("  NO PAIRED DEVICES")
@@ -304,10 +325,12 @@ class SettingsTerminal(BaseTerminal):
             self._start_worker("bt_scan", self._do_bt_scan)
         elif q == "3":
             self._start_worker("bt_enable",
-                               lambda: [f"  {_run('bluetoothctl power on && echo BLUETOOTH ENABLED')}"])
+                               lambda: [f"  {_bt_cmd('power on')}",
+                                        "  BLUETOOTH ENABLED"])
         elif q == "4":
             self._start_worker("bt_disable",
-                               lambda: [f"  {_run('bluetoothctl power off && echo BLUETOOTH DISABLED')}"])
+                               lambda: [f"  {_bt_cmd('power off')}",
+                                        "  BLUETOOTH DISABLED"])
         elif q == "0":
             self._show_main_menu()
         else:
@@ -316,21 +339,20 @@ class SettingsTerminal(BaseTerminal):
 
     def _handle_bt_scan(self, q):
         if q == "0":
-            _run("bluetoothctl scan off")
+            _bt_cmd("scan off")
             self._show_bt_menu()
             return
         self.add_line("  SCAN COMPLETE. 0 TO GO BACK.")
         self.add_line("")
 
     def _do_bt_scan(self):
-        """Scan for BT devices (blocking, runs in worker thread)."""
-        _run("bluetoothctl scan on", timeout=1)
-        import time
-        time.sleep(5)
-        _run("bluetoothctl scan off", timeout=2)
-        raw = _run("bluetoothctl devices")
+        """Scan for BT devices using non-interactive bluetoothctl."""
+        _run("timeout 6 bash -c 'echo \"scan on\" | bluetoothctl >/dev/null 2>&1'", timeout=8)
+        _bt_cmd("scan off")
+
+        raw = _run("bluetoothctl devices", timeout=3)
         lines = ["", "  DISCOVERED DEVICES:"]
-        if raw:
+        if raw and not raw.startswith("ERROR"):
             for line in raw.split("\n"):
                 parts = line.strip().split(" ", 2)
                 if len(parts) >= 3:
@@ -355,7 +377,10 @@ class SettingsTerminal(BaseTerminal):
         self._worker.start()
 
     def _run_worker(self, func):
-        self._worker_result = func()
+        try:
+            self._worker_result = func()
+        except Exception as e:
+            self._worker_result = [f"  ERROR: {e}"]
 
     def update(self):
         super().update()
