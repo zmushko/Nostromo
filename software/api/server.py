@@ -33,14 +33,23 @@ class _Handler(BaseHTTPRequestHandler):
     """HTTP request handler for Nostromo Remote API."""
 
     def do_POST(self):
-        if self.path == "/play":
-            self._handle_play()
+        routes = {
+            "/play": self._handle_play,
+            "/seek": self._handle_seek,
+            "/volume": self._handle_volume,
+            "/pause": self._handle_pause,
+        }
+        handler = routes.get(self.path)
+        if handler:
+            handler()
         else:
             self._respond(404, {"error": "not found"})
 
     def do_GET(self):
         if self.path == "/ping":
             self._respond(200, {"status": "ok", "name": "NOSTROMO"})
+        elif self.path == "/status":
+            self._handle_status()
         else:
             self._respond(404, {"error": "not found"})
 
@@ -68,6 +77,64 @@ class _Handler(BaseHTTPRequestHandler):
         else:
             self._respond(503, {"error": "media terminal not ready"})
 
+    def _read_json(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length).decode("utf-8")
+            return json.loads(body)
+        except Exception:
+            return None
+
+    def _get_player(self):
+        api = self.server.api
+        return api.get_player() if api and api.get_player else None
+
+    def _handle_seek(self):
+        data = self._read_json()
+        if not data or "seconds" not in data:
+            self._respond(400, {"error": "need 'seconds' field"})
+            return
+        player = self._get_player()
+        if not player or not player.playing:
+            self._respond(503, {"error": "nothing playing"})
+            return
+        player.seek(float(data["seconds"]))
+        self._respond(200, {"status": "ok"})
+
+    def _handle_volume(self):
+        data = self._read_json()
+        if not data or "delta" not in data:
+            self._respond(400, {"error": "need 'delta' field"})
+            return
+        player = self._get_player()
+        if not player:
+            self._respond(503, {"error": "player not ready"})
+            return
+        player.set_volume(float(data["delta"]))
+        self._respond(200, {"status": "ok", "volume": int(player.volume * 100)})
+
+    def _handle_pause(self):
+        player = self._get_player()
+        if not player or not player.playing:
+            self._respond(503, {"error": "nothing playing"})
+            return
+        player.toggle_pause()
+        self._respond(200, {"status": "ok", "paused": player.paused})
+
+    def _handle_status(self):
+        player = self._get_player()
+        if not player:
+            self._respond(200, {"playing": False})
+            return
+        self._respond(200, {
+            "playing": player.playing,
+            "paused": player.paused if player.playing else False,
+            "position": round(player.position, 1) if player.playing else 0,
+            "duration": round(player.duration, 1) if player.playing else 0,
+            "volume": int(player.volume * 100),
+            "muted": player.muted,
+        })
+
     def _respond(self, code, data):
         body = json.dumps(data).encode("utf-8")
         self.send_response(code)
@@ -84,9 +151,10 @@ class _Handler(BaseHTTPRequestHandler):
 class RemoteAPI:
     """HTTP API server running in a background thread."""
 
-    def __init__(self, port=8080, play_callback=None):
+    def __init__(self, port=8080, play_callback=None, get_player=None):
         self.port = port
         self.play_callback = play_callback
+        self.get_player = get_player
         self._server = None
         self._thread = None
 

@@ -12,8 +12,12 @@ Screens:
     Ctrl+Q  — shutdown
 
 Remote API:
-    POST http://<host>:8080/play  {"url": "https://youtube.com/watch?v=..."}
+    POST http://<host>:8080/play    {"url": "https://youtube.com/watch?v=..."}
+    POST http://<host>:8080/seek    {"seconds": 10}  (negative to rewind)
+    POST http://<host>:8080/volume  {"delta": 0.1}   (negative to lower)
+    POST http://<host>:8080/pause
     GET  http://<host>:8080/ping
+    GET  http://<host>:8080/status
 
 Usage:
     export ANTHROPIC_API_KEY="your-key"
@@ -51,6 +55,7 @@ def main():
     api = RemoteAPI(
         port=8080,
         play_callback=lambda vid, url: media_screen.terminal.queue_play(vid, url),
+        get_player=lambda: media_screen.terminal.video_player,
     )
     api.start()
 

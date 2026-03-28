@@ -1,1 +1,10 @@
 .DS_Store
+
+# Flutter (remote app)
+remote/build/
+remote/.dart_tool/
+remote/.flutter-plugins
+remote/.flutter-plugins-dependencies
+remote/.packages
+remote/.idea/
+remote/.metadata

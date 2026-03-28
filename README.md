@@ -19,6 +19,7 @@ The project includes both the software (Python/pygame) and the hardware design (
 - **Boot sequence** — Authentic startup animation inspired by the Nostromo's onboard systems
 - **I²S audio** — Digital audio path via MAX98357A amplifier, mono mix through ALSA
 - **3D-printed enclosure** — Custom case designed in OpenSCAD, FDM optimized
+- **Remote control app** — Android companion app (Flutter) for sharing YouTube links and controlling playback from your phone
 
 ## Hardware
 
