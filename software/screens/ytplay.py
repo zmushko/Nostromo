@@ -183,6 +183,10 @@ class VideoPlayer:
     def start(self, stream_urls, duration_sec=0):
         from ffpyplayer.player import MediaPlayer
 
+        # Stop previous playback cleanly before starting new one
+        if self.playing or self.player:
+            self.stop()
+
         self.duration = duration_sec
         self.error = None
         self.paused = False
@@ -204,9 +208,9 @@ class VideoPlayer:
 
         try:
             if pygame.mixer.get_init():
-                sound.quit()      # mark sounds as uninitialized first
+                sound.quit()
                 pygame.mixer.quit()
-                time.sleep(0.2)   # let SDL audio fully release
+                time.sleep(0.1)
             self.player = MediaPlayer(video_url, ff_opts=ff_opts)
             self.player.set_volume(self.volume)
             self.playing = True
@@ -225,10 +229,14 @@ class VideoPlayer:
             print(f"[player] ERROR: {e}", file=sys.stderr)
 
     def _decode_loop(self):
-        while self.playing and self.player:
+        player = self.player  # local ref — avoid race with stop()
+        while self.playing and player:
             try:
-                frame, val = self.player.get_frame()
+                frame, val = player.get_frame()
             except Exception:
+                break
+
+            if not self.playing:
                 break
 
             if val == 'eof':
@@ -239,12 +247,10 @@ class VideoPlayer:
                 img, pts = frame
                 self.position = pts
 
-                # Only convert to surface if screen is active
                 if self.decode_video:
-                    w, h = img.get_size()
-                    data = bytes(img.to_bytearray()[0])
-
                     try:
+                        w, h = img.get_size()
+                        data = bytes(img.to_bytearray()[0])
                         surf = pygame.image.frombuffer(data, (w, h), 'RGB')
                         scale = min(self.screen_w / w, self.screen_h / h)
                         new_w = int(w * scale)
