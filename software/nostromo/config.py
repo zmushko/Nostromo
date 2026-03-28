@@ -18,6 +18,9 @@ COLOR_INPUT_DIM  = (15, 80, 0)
 COLOR_BRIGHT     = (80, 255, 50)
 COLOR_HIGHLIGHT  = (40, 200, 0)
 
+# Video
+VIDEO_SCALE = "fill"   # "fill" = crop edges, "fit" = black bars
+
 # Font
 FONT_SIZE = 17
 

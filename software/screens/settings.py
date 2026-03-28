@@ -184,6 +184,7 @@ class SettingsTerminal(BaseTerminal):
     STATE_WIFI_PASS = "wifi_pass"
     STATE_BT = "bt"
     STATE_BT_SCAN = "bt_scan"
+    STATE_VIDEO = "video"
 
     def __init__(self, renderer):
         super().__init__(renderer, boot_lines=BOOT_LINES, prompt="CMD> ")
@@ -205,6 +206,7 @@ class SettingsTerminal(BaseTerminal):
         self.add_line("  |  1. SYSTEM INFO              |")
         self.add_line("  |  2. WIFI                     |")
         self.add_line("  |  3. BLUETOOTH                |")
+        self.add_line("  |  4. VIDEO                    |")
         self.add_line("  |                              |")
         self.add_line("  |  0. REFRESH                  |")
         self.add_line("  +------------------------------+")
@@ -254,6 +256,8 @@ class SettingsTerminal(BaseTerminal):
             self._handle_bt(q)
         elif self.state == self.STATE_BT_SCAN:
             self._handle_bt_scan(q)
+        elif self.state == self.STATE_VIDEO:
+            self._handle_video(q)
         elif self.state == self.STATE_SYSINFO:
             self._show_main_menu()
 
@@ -264,6 +268,8 @@ class SettingsTerminal(BaseTerminal):
             self._show_wifi_menu()
         elif q == "3":
             self._show_bt_menu()
+        elif q == "4":
+            self._show_video_menu()
         elif q == "0":
             self._show_main_menu()
         else:
@@ -364,6 +370,37 @@ class SettingsTerminal(BaseTerminal):
         lines.append("  0. BACK")
         lines.append("")
         return lines
+
+    def _show_video_menu(self):
+        self.state = self.STATE_VIDEO
+        current = cfg.VIDEO_SCALE.upper()
+        self.add_line("  +------------------------------+")
+        self.add_line("  |   VIDEO SETTINGS             |")
+        self.add_line("  +------------------------------+")
+        self.add_line(f"  |  SCALE MODE: {current:<16s}|")
+        self.add_line("  |                              |")
+        self.add_line("  |  1. FILL (CROP EDGES)        |")
+        self.add_line("  |  2. FIT  (BLACK BARS)        |")
+        self.add_line("  |                              |")
+        self.add_line("  |  0. BACK                     |")
+        self.add_line("  +------------------------------+")
+        self.add_line("")
+
+    def _handle_video(self, q):
+        if q == "1":
+            cfg.VIDEO_SCALE = "fill"
+            self.add_line("  SCALE MODE: FILL")
+            self.add_line("")
+        elif q == "2":
+            cfg.VIDEO_SCALE = "fit"
+            self.add_line("  SCALE MODE: FIT")
+            self.add_line("")
+        elif q == "0":
+            self._show_main_menu()
+            return
+        else:
+            self.add_line("  INVALID OPTION")
+            self.add_line("")
 
     def _start_worker(self, task_name, func):
         self.set_busy(True)

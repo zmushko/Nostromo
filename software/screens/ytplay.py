@@ -95,7 +95,7 @@ def yt_search(query, max_results=MAX_RESULTS):
             try:
                 data = json.loads(line)
                 results.append({
-                    "title": data.get("title", "UNKNOWN"),
+                    "title": data.get("title", "UNKNOWN").upper(),
                     "id": data.get("id", ""),
                     "duration": _fmt_duration(data.get("duration")),
                     "channel": data.get("channel", data.get("uploader", "")),
@@ -252,7 +252,8 @@ class VideoPlayer:
                         w, h = img.get_size()
                         data = bytes(img.to_bytearray()[0])
                         surf = pygame.image.frombuffer(data, (w, h), 'RGB')
-                        scale = min(self.screen_w / w, self.screen_h / h)
+                        scale_fn = max if cfg.VIDEO_SCALE == "fill" else min
+                        scale = scale_fn(self.screen_w / w, self.screen_h / h)
                         new_w = int(w * scale)
                         new_h = int(h * scale)
                         scaled = pygame.transform.scale(surf, (new_w, new_h))
@@ -447,7 +448,7 @@ class MediaTerminal(BaseTerminal):
         self.logger.log_event("DIRECT", video_id)
         self._resolving = True
         self._resolve_video = {
-            "title": display_text or video_id,
+            "title": (display_text or video_id).upper(),
             "id": video_id,
             "duration_sec": 0,
         }
