@@ -9,7 +9,7 @@ cd /home/pi/mother
 mkdir -p logs
 
 while true; do
-    python3 main.py --fullscreen 2>> logs/nostromo.log
+    python3 main.py --fullscreen >> logs/nostromo.log 2>&1
     echo "$(date): exited ($?), restarting in 3s..." >> logs/nostromo.log
     sleep 3
 done

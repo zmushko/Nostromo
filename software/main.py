@@ -26,6 +26,8 @@ Usage:
 
 import os
 import sys
+import faulthandler
+faulthandler.enable()
 
 # Verify API key early
 if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -50,11 +52,18 @@ def main():
     mgr.add("3", ytplay.create())
     mgr.add("4", settings.create())
 
-    # Start Remote API for mobile app
+    # Force-init media screen so Remote API works from any screen
     media_screen = mgr.screens["3"]
+    if not media_screen.initialized:
+        media_screen.init(renderer)
+
+    def _on_remote_play(vid, url):
+        media_screen.terminal.queue_play(vid, url)
+        mgr.set_active("3")
+
     api = RemoteAPI(
         port=8080,
-        play_callback=lambda vid, url: media_screen.terminal.queue_play(vid, url),
+        play_callback=_on_remote_play,
         get_player=lambda: media_screen.terminal.video_player,
     )
     api.start()

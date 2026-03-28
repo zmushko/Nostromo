@@ -1,5 +1,5 @@
 [Unit]
-Description=MU-TH-UR 6000 Terminal
+Description=NOSTROMO Terminal
 After=multi-user.target
 
 [Service]
@@ -7,8 +7,10 @@ Type=simple
 User=pi
 Environment=ANTHROPIC_API_KEY=your-key-here
 Environment=SDL_VIDEODRIVER=kmsdrm
+Environment=SDL_AUDIODRIVER=alsa
+Environment=AUDIODEV=plughw:2
 WorkingDirectory=/home/pi/mother
-ExecStart=/usr/bin/python3 /home/pi/mother/mother.py --fullscreen
+ExecStart=/usr/bin/python3 /home/pi/mother/main.py --fullscreen
 Restart=on-failure
 RestartSec=5
 

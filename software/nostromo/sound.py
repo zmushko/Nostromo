@@ -98,14 +98,27 @@ def play_tick():
         return
     name = 'tick_alt' if _tick_toggle else 'tick'
     _tick_toggle = not _tick_toggle
-    _sounds[name].play()
+    try:
+        _sounds[name].play()
+    except Exception:
+        pass
 
 
 def play_line_pip():
     """Play end-of-line major chord pip."""
     if not _initialized:
         return
-    _sounds['line_pip'].play()
+    try:
+        _sounds['line_pip'].play()
+    except Exception:
+        pass
+
+
+def reinit():
+    """Re-initialize after mixer was released (e.g. for video playback)."""
+    global _initialized
+    _initialized = False
+    init()
 
 
 def quit():

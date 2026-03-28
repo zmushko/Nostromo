@@ -98,8 +98,11 @@ class _Handler(BaseHTTPRequestHandler):
         if not player or not player.playing:
             self._respond(503, {"error": "nothing playing"})
             return
-        player.seek(float(data["seconds"]))
-        self._respond(200, {"status": "ok"})
+        try:
+            player.seek(float(data["seconds"]))
+            self._respond(200, {"status": "ok"})
+        except Exception as e:
+            self._respond(500, {"error": str(e)})
 
     def _handle_volume(self):
         data = self._read_json()
@@ -110,30 +113,39 @@ class _Handler(BaseHTTPRequestHandler):
         if not player:
             self._respond(503, {"error": "player not ready"})
             return
-        player.set_volume(float(data["delta"]))
-        self._respond(200, {"status": "ok", "volume": int(player.volume * 100)})
+        try:
+            player.set_volume(float(data["delta"]))
+            self._respond(200, {"status": "ok", "volume": int(player.volume * 100)})
+        except Exception as e:
+            self._respond(500, {"error": str(e)})
 
     def _handle_pause(self):
         player = self._get_player()
         if not player or not player.playing:
             self._respond(503, {"error": "nothing playing"})
             return
-        player.toggle_pause()
-        self._respond(200, {"status": "ok", "paused": player.paused})
+        try:
+            player.toggle_pause()
+            self._respond(200, {"status": "ok", "paused": player.paused})
+        except Exception as e:
+            self._respond(500, {"error": str(e)})
 
     def _handle_status(self):
         player = self._get_player()
         if not player:
             self._respond(200, {"playing": False})
             return
-        self._respond(200, {
-            "playing": player.playing,
-            "paused": player.paused if player.playing else False,
-            "position": round(player.position, 1) if player.playing else 0,
-            "duration": round(player.duration, 1) if player.playing else 0,
-            "volume": int(player.volume * 100),
-            "muted": player.muted,
-        })
+        try:
+            self._respond(200, {
+                "playing": player.playing,
+                "paused": player.paused if player.playing else False,
+                "position": round(player.position, 1) if player.playing else 0,
+                "duration": round(player.duration, 1) if player.playing else 0,
+                "volume": int(player.volume * 100),
+                "muted": player.muted,
+            })
+        except Exception:
+            self._respond(200, {"playing": False})
 
     def _respond(self, code, data):
         body = json.dumps(data).encode("utf-8")
@@ -144,8 +156,9 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, fmt, *args):
-        """Redirect HTTP logs to stderr."""
-        print(f"[api] {args[0]}", file=sys.stderr)
+        """Redirect HTTP logs to stderr (suppress noisy status polls)."""
+        if "/status" not in str(args[0]):
+            print(f"[api] {args[0]}", file=sys.stderr)
 
 
 class RemoteAPI:

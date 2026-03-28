@@ -66,11 +66,14 @@ main.py                          ← Entry point
 │   ├── app.py                   ← NostromoApp base (pygame, CRT rendering)
 │   ├── screen.py                ← Screen interface (activate/deactivate/is_alive)
 │   └── manager.py               ← ScreenManager (main loop, hot-switching)
-└── screens/
-    ├── ai_terminal.py           ← Shared AI terminal base (Claude API, typewriter)
-    ├── claude.py                ← Claude config + system prompt
-    ├── mother.py                ← MU-TH-UR 6000 config + system prompt
-    └── ytplay.py                ← MediaScreen (ffpyplayer, video + audio)
+├── screens/
+│   ├── ai_terminal.py           ← Shared AI terminal base (Claude API, typewriter)
+│   ├── claude.py                ← Claude config + system prompt
+│   ├── mother.py                ← MU-TH-UR 6000 config + system prompt
+│   └── ytplay.py                ← MediaScreen (ffpyplayer, video + audio)
+├── api/
+│   └── server.py                ← HTTP API for mobile remote control
+└── start.sh                     ← Startup script with auto-restart
 ```
 
 ### Key Design Decisions
@@ -116,6 +119,17 @@ options vc4 index=1
 dtoverlay=hifiberry-dac
 ```
 
+### Wi-Fi Power Management
+
+Disable Wi-Fi power saving to prevent video buffering stutters:
+
+```bash
+sudo iw dev wlan0 set power_save off
+sudo nmcli connection modify "<your-ssid>" wifi.powersave 2
+```
+
+The first command takes effect immediately, the second persists across reboots.
+
 ## Installation
 
 ### Prerequisites
@@ -133,6 +147,41 @@ pip install pygame anthropic ffpyplayer yt-dlp --break-system-packages
 export ANTHROPIC_API_KEY="sk-ant-..."
 python3 main.py --fullscreen
 ```
+
+### Auto-start on boot
+
+Nostromo starts automatically via autologin on tty1:
+
+1. **Getty autologin** — `/etc/systemd/system/getty@tty1.service.d/override.conf`:
+   ```ini
+   [Service]
+   ExecStart=
+   ExecStart=-/sbin/agetty --autologin pi --noclear %I $TERM
+   ```
+
+2. **Bash profile** — `~/.bash_profile` launches `start.sh` only on tty1:
+   ```bash
+   if [ "$(tty)" = "/dev/tty1" ]; then
+       exec ~/mother/start.sh
+   fi
+   ```
+
+3. **`start.sh`** — sets up environment and auto-restarts on crash:
+   ```bash
+   export ANTHROPIC_API_KEY="your-key"
+   export SDL_VIDEODRIVER=kmsdrm
+   export SDL_AUDIODRIVER=alsa
+   export AUDIODEV=plughw:2
+   cd /home/pi/mother
+   while true; do
+       python3 main.py --fullscreen 2>> logs/nostromo.log
+       sleep 3
+   done
+   ```
+
+Crash logs are in `/home/pi/mother/logs/nostromo.log`.
+
+Alternatively, a systemd service file (`mother.service`) is provided for `systemctl`-based setups.
 
 ## Printing the Enclosure
 

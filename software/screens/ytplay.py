@@ -18,6 +18,7 @@ from nostromo.screen import Screen
 from nostromo.terminal import BaseTerminal
 from nostromo.logger import SessionLogger
 from nostromo import config as cfg
+from nostromo import sound
 
 # ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -162,12 +163,12 @@ class VideoPlayer:
         self.player = None
         self.playing = False
         self.paused = False
-        self.volume = 1.0
+        self.volume = 0.3
         self.muted = False
         self.duration = 0
         self.position = 0
         self.error = None
-        self.decode_video = True  # can disable when screen not active
+        self.decode_video = False  # enabled by on_activate(), off by default for thread safety
 
         # OSD
         self._osd_visible = True
@@ -186,7 +187,6 @@ class VideoPlayer:
         self.error = None
         self.paused = False
         self._current_surface = None
-        self.decode_video = True
 
         video_url = stream_urls[0]
 
@@ -204,7 +204,9 @@ class VideoPlayer:
 
         try:
             if pygame.mixer.get_init():
+                sound.quit()      # mark sounds as uninitialized first
                 pygame.mixer.quit()
+                time.sleep(0.2)   # let SDL audio fully release
             self.player = MediaPlayer(video_url, ff_opts=ff_opts)
             self.player.set_volume(self.volume)
             self.playing = True
@@ -269,6 +271,8 @@ class VideoPlayer:
             self.player = None
         with self._lock:
             self._current_surface = None
+        # Re-init mixer for terminal sounds
+        sound.reinit()
 
     def toggle_pause(self):
         if self.player:
@@ -604,7 +608,7 @@ class MediaScreen(Screen):
 
     def on_activate(self):
         super().on_activate()
-        if self.terminal and self.terminal.video_player.playing:
+        if self.terminal:
             self.terminal.video_player.decode_video = True
 
     @property
@@ -620,12 +624,14 @@ class MediaScreen(Screen):
             self.terminal.video_player.decode_video = False
 
     def is_alive(self):
-        """Keep updating while audio is playing in background."""
+        """Keep updating while audio is playing or work is queued."""
         if self.terminal:
             vp = self.terminal.video_player
             if vp.playing:
                 return True
             if self.terminal._searching or self.terminal._resolving:
+                return True
+            if not self.terminal._play_queue.empty():
                 return True
         return False
 
