@@ -1,14 +1,17 @@
 """
 NOSTROMO Media Terminal screen.
 YouTube search & playback with background audio support.
+Supports remote play via HTTP API (Nostromo Remote app).
 """
 
 import os
+import re
 import sys
 import json
 import subprocess
 import threading
 import time
+import queue as queue_mod
 import pygame
 
 from nostromo.screen import Screen
@@ -58,18 +61,32 @@ OSD_DIM = (20, 100, 0)
 # ─── YouTube Backend ────────────────────────────────────────────────────────
 
 def yt_search(query, max_results=MAX_RESULTS):
-    """Search YouTube via yt-dlp."""
+    """Search YouTube via yt-dlp.
+    Returns (results_list, error_string_or_None).
+    """
     cmd = [
         "yt-dlp",
         f"ytsearch{max_results}:{query}",
         "--dump-json", "--flat-playlist",
-        "--no-download", "--no-warnings", "--quiet",
+        "--no-download",
     ]
     if os.path.exists(COOKIES_FILE):
         cmd.extend(["--cookies", COOKIES_FILE])
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+        # Log stderr for debugging
+        if result.stderr:
+            stderr_short = result.stderr.strip()[-300:]
+            print(f"[yt-dlp search] stderr: {stderr_short}", file=sys.stderr)
+
+        if result.returncode != 0 and not result.stdout.strip():
+            err = result.stderr.strip() if result.stderr else "unknown error"
+            err_lines = [l for l in err.split("\n") if l.strip() and "WARNING" not in l]
+            err_msg = err_lines[-1][:cfg.COLS - 10] if err_lines else "SEARCH FAILED"
+            return [], err_msg
+
         results = []
         for line in result.stdout.strip().split("\n"):
             if not line.strip():
@@ -85,9 +102,14 @@ def yt_search(query, max_results=MAX_RESULTS):
                 })
             except json.JSONDecodeError:
                 continue
-        return results
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return []
+        return results, None
+
+    except subprocess.TimeoutExpired:
+        return [], "SEARCH TIMEOUT (30S)"
+    except FileNotFoundError:
+        return [], "YT-DLP NOT FOUND"
+    except Exception as e:
+        return [], str(e)[:cfg.COLS - 10]
 
 
 def yt_get_stream_url(video_id):
@@ -113,6 +135,20 @@ def _fmt_duration(seconds):
     m, s = divmod(int(seconds), 60)
     h, m = divmod(m, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def _extract_video_id(text):
+    """Extract YouTube video ID from URL or raw 11-char ID."""
+    patterns = [
+        r'(?:youtube\.com/watch\?.*v=|youtu\.be/|youtube\.com/shorts/)([a-zA-Z0-9_-]{11})',
+    ]
+    for pat in patterns:
+        m = re.search(pat, text)
+        if m:
+            return m.group(1)
+    if re.match(r'^[a-zA-Z0-9_-]{11}$', text.strip()):
+        return text.strip()
+    return None
 
 
 # ─── Video Player ───────────────────────────────────────────────────────────
@@ -323,15 +359,21 @@ class MediaTerminal(BaseTerminal):
         self.results = []
         self._search_thread = None
         self._search_results = None
+        self._search_error = None
         self._searching = False
         self._resolving = False
         self._resolve_thread = None
         self._resolve_result = None
         self._resolve_video = None
+        self._play_queue = queue_mod.Queue()
         self.video_player = VideoPlayer(cfg.SCREEN_W, cfg.SCREEN_H)
 
     def on_boot_complete(self):
         self.logger.log_boot()
+
+    def queue_play(self, video_id, url=""):
+        """Thread-safe: queue a video for playback (called from API)."""
+        self._play_queue.put((video_id, url))
 
     def on_submit(self, query):
         if self.results and query.isdigit():
@@ -343,12 +385,20 @@ class MediaTerminal(BaseTerminal):
                 self.add_line(f"  INVALID SELECTION: {num}")
                 self.add_line("")
                 return
+
+        # Direct URL or video ID
+        video_id = _extract_video_id(query)
+        if video_id:
+            self._start_resolve_by_id(video_id, query)
+            return
+
         self._start_search(query)
 
     def _start_search(self, query):
         self.logger.log_event("SEARCH", query)
         self.results = []
         self._searching = True
+        self._search_error = None
         self.set_busy(True)
         self._working_dots = 0
         self._last_dot_time = pygame.time.get_ticks()
@@ -359,7 +409,9 @@ class MediaTerminal(BaseTerminal):
         self._search_thread.start()
 
     def _do_search(self, query):
-        self._search_results = yt_search(query)
+        results, error = yt_search(query)
+        self._search_results = results
+        self._search_error = error
 
     def _start_resolve(self, index):
         video = self.results[index]
@@ -374,6 +426,27 @@ class MediaTerminal(BaseTerminal):
         self._resolve_result = None
         self._resolve_thread = threading.Thread(
             target=self._do_resolve, args=(video["id"],), daemon=True
+        )
+        self._resolve_thread.start()
+
+    def _start_resolve_by_id(self, video_id, display_text=""):
+        """Resolve and play by video ID directly (no search)."""
+        label = display_text[:cfg.COLS - 12] if display_text else video_id
+        self.add_line(f"  DIRECT: {label}")
+        self.add_line("")
+        self.logger.log_event("DIRECT", video_id)
+        self._resolving = True
+        self._resolve_video = {
+            "title": display_text or video_id,
+            "id": video_id,
+            "duration_sec": 0,
+        }
+        self.set_busy(True)
+        self._working_dots = 0
+        self._last_dot_time = pygame.time.get_ticks()
+        self._resolve_result = None
+        self._resolve_thread = threading.Thread(
+            target=self._do_resolve, args=(video_id,), daemon=True
         )
         self._resolve_thread.start()
 
@@ -435,6 +508,17 @@ class MediaTerminal(BaseTerminal):
     def update(self):
         super().update()
 
+        # Check for remote play commands (from API)
+        try:
+            video_id, url = self._play_queue.get_nowait()
+            if not self._resolving and not self._searching:
+                self._start_resolve_by_id(video_id, url)
+            else:
+                # Re-queue if busy
+                self._play_queue.put((video_id, url))
+        except queue_mod.Empty:
+            pass
+
         if self._searching and self._search_thread:
             if not self._search_thread.is_alive():
                 self._search_thread = None
@@ -443,6 +527,10 @@ class MediaTerminal(BaseTerminal):
                 self.results = self._search_results or []
                 if self.results:
                     self._show_results()
+                elif self._search_error:
+                    self.add_line(f"  ERROR: {self._search_error}")
+                    self.add_line("")
+                    self.logger.log_event("ERROR", self._search_error)
                 else:
                     self.add_line("  NO RESULTS FOUND.")
                     self.add_line("")

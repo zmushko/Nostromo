@@ -11,6 +11,10 @@ Screens:
     Ctrl+4  — CONFIG (system settings)
     Ctrl+Q  — shutdown
 
+Remote API:
+    POST http://<host>:8080/play  {"url": "https://youtube.com/watch?v=..."}
+    GET  http://<host>:8080/ping
+
 Usage:
     export ANTHROPIC_API_KEY="your-key"
     python3 main.py [--fullscreen]
@@ -28,6 +32,7 @@ from nostromo import app
 from nostromo.manager import ScreenManager
 
 from screens import claude, mother, ytplay, settings
+from api.server import RemoteAPI
 
 
 def main():
@@ -41,6 +46,14 @@ def main():
     mgr.add("3", ytplay.create())
     mgr.add("4", settings.create())
 
+    # Start Remote API for mobile app
+    media_screen = mgr.screens["3"]
+    api = RemoteAPI(
+        port=8080,
+        play_callback=lambda vid, url: media_screen.terminal.queue_play(vid, url),
+    )
+    api.start()
+
     # Start with Claude
     mgr.set_active("1")
 
@@ -52,3 +65,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
