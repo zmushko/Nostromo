@@ -22,7 +22,7 @@ COLOR_HIGHLIGHT  = (40, 200, 0)
 VIDEO_SCALE = "fill"   # "fill" = crop edges, "fit" = black bars
 
 # Screensaver
-SCREENSAVER_MODE = "logo"     # "logo", "matrix", "status", "dvd", "off"
+SCREENSAVER_MODE = "crab"     # "logo", "matrix", "status", "dvd", "crab", "off"
 SCREENSAVER_TIMEOUT = 180     # seconds of idle before activation
 
 # Font

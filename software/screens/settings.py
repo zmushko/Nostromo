@@ -424,7 +424,8 @@ class SettingsTerminal(BaseTerminal):
         self.add_line("  |  2. MATRIX RAIN              |")
         self.add_line("  |  3. STATUS SCROLL            |")
         self.add_line("  |  4. DVD BOUNCE               |")
-        self.add_line("  |  5. OFF                      |")
+        self.add_line("  |  5. CLAUDE                   |")
+        self.add_line("  |  6. OFF                      |")
         self.add_line("  |                              |")
         self.add_line("  |  T. SET TIMEOUT (SECONDS)    |")
         self.add_line("  |  0. BACK                     |")
@@ -432,7 +433,7 @@ class SettingsTerminal(BaseTerminal):
         self.add_line("")
 
     def _handle_screensaver(self, q):
-        modes = {"1": "logo", "2": "matrix", "3": "status", "4": "dvd", "5": "off"}
+        modes = {"1": "logo", "2": "matrix", "3": "status", "4": "dvd", "5": "crab", "6": "off"}
         if q in modes:
             cfg.SCREENSAVER_MODE = modes[q]
             self.add_line(f"  SCREENSAVER: {modes[q].upper()}")
