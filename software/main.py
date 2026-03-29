@@ -58,6 +58,7 @@ def main():
         media_screen.init(renderer)
 
     def _on_remote_play(vid, url):
+        mgr.screensaver.reset_timer()
         media_screen.terminal.queue_play(vid, url)
         mgr.set_active("3")
 

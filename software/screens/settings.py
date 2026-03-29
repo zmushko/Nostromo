@@ -185,6 +185,7 @@ class SettingsTerminal(BaseTerminal):
     STATE_BT = "bt"
     STATE_BT_SCAN = "bt_scan"
     STATE_VIDEO = "video"
+    STATE_SCREENSAVER = "screensaver"
 
     def __init__(self, renderer):
         super().__init__(renderer, boot_lines=BOOT_LINES, prompt="CMD> ")
@@ -207,6 +208,7 @@ class SettingsTerminal(BaseTerminal):
         self.add_line("  |  2. WIFI                     |")
         self.add_line("  |  3. BLUETOOTH                |")
         self.add_line("  |  4. VIDEO                    |")
+        self.add_line("  |  5. SCREENSAVER              |")
         self.add_line("  |                              |")
         self.add_line("  |  0. REFRESH                  |")
         self.add_line("  +------------------------------+")
@@ -258,6 +260,10 @@ class SettingsTerminal(BaseTerminal):
             self._handle_bt_scan(q)
         elif self.state == self.STATE_VIDEO:
             self._handle_video(q)
+        elif self.state == self.STATE_SCREENSAVER:
+            self._handle_screensaver(q)
+        elif self.state == "screensaver_timeout":
+            self._handle_screensaver_timeout(q)
         elif self.state == self.STATE_SYSINFO:
             self._show_main_menu()
 
@@ -270,6 +276,8 @@ class SettingsTerminal(BaseTerminal):
             self._show_bt_menu()
         elif q == "4":
             self._show_video_menu()
+        elif q == "5":
+            self._show_screensaver_menu()
         elif q == "0":
             self._show_main_menu()
         else:
@@ -401,6 +409,55 @@ class SettingsTerminal(BaseTerminal):
         else:
             self.add_line("  INVALID OPTION")
             self.add_line("")
+
+    def _show_screensaver_menu(self):
+        self.state = self.STATE_SCREENSAVER
+        current = cfg.SCREENSAVER_MODE.upper()
+        timeout = f"{cfg.SCREENSAVER_TIMEOUT}S"
+        self.add_line("  +------------------------------+")
+        self.add_line("  |   SCREENSAVER                |")
+        self.add_line("  +------------------------------+")
+        self.add_line(f"  |  MODE: {current:<23s}|")
+        self.add_line(f"  |  TIMEOUT: {timeout:<19s}|")
+        self.add_line("  |                              |")
+        self.add_line("  |  1. LOGO (WEYLAND-YUTANI)    |")
+        self.add_line("  |  2. MATRIX RAIN              |")
+        self.add_line("  |  3. STATUS SCROLL            |")
+        self.add_line("  |  4. DVD BOUNCE               |")
+        self.add_line("  |  5. OFF                      |")
+        self.add_line("  |                              |")
+        self.add_line("  |  T. SET TIMEOUT (SECONDS)    |")
+        self.add_line("  |  0. BACK                     |")
+        self.add_line("  +------------------------------+")
+        self.add_line("")
+
+    def _handle_screensaver(self, q):
+        modes = {"1": "logo", "2": "matrix", "3": "status", "4": "dvd", "5": "off"}
+        if q in modes:
+            cfg.SCREENSAVER_MODE = modes[q]
+            self.add_line(f"  SCREENSAVER: {modes[q].upper()}")
+            self.add_line("")
+        elif q == "T":
+            self.add_line("  ENTER TIMEOUT IN SECONDS:")
+            self.add_line("")
+            self.state = "screensaver_timeout"
+        elif q == "0":
+            self._show_main_menu()
+            return
+        else:
+            self.add_line("  INVALID OPTION")
+            self.add_line("")
+
+    def _handle_screensaver_timeout(self, q):
+        if q.isdigit() and int(q) > 0:
+            cfg.SCREENSAVER_TIMEOUT = int(q)
+            self.add_line(f"  TIMEOUT: {q} SECONDS")
+            self.add_line("")
+            self._show_screensaver_menu()
+        else:
+            self.add_line("  INVALID VALUE")
+            self.add_line("")
+            self._show_screensaver_menu()
 
     def _start_worker(self, task_name, func):
         self.set_busy(True)

@@ -21,6 +21,10 @@ COLOR_HIGHLIGHT  = (40, 200, 0)
 # Video
 VIDEO_SCALE = "fill"   # "fill" = crop edges, "fit" = black bars
 
+# Screensaver
+SCREENSAVER_MODE = "logo"     # "logo", "matrix", "status", "dvd", "off"
+SCREENSAVER_TIMEOUT = 180     # seconds of idle before activation
+
 # Font
 FONT_SIZE = 17
 

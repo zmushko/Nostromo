@@ -7,6 +7,7 @@ import sys
 import pygame
 from . import config as cfg
 from . import sound
+from .screensaver import Screensaver
 
 
 class ScreenManager:
@@ -28,6 +29,7 @@ class ScreenManager:
         self.menu_key = None     # slot key for menu screen
         self._running = False
         self._on_quit = None
+        self.screensaver = Screensaver(renderer)
 
     @property
     def active(self):
@@ -108,6 +110,11 @@ class ScreenManager:
                 return
 
             if event.type == pygame.KEYDOWN:
+                self.screensaver.reset_timer()
+                # If screensaver was active, just dismiss it
+                if self.screensaver.active:
+                    continue
+
                 # Global: Ctrl+Q = quit
                 if event.key == pygame.K_q and (event.mod & pygame.KMOD_CTRL):
                     self._running = False
@@ -152,14 +159,25 @@ class ScreenManager:
                 screen.update()
 
     def _render(self):
-        """Render active screen + status bar."""
+        """Render active screen + status bar, or screensaver."""
         surface = pygame.display.get_surface()
         if surface is None:
             return
 
+        # Check screensaver (skip when video is playing)
+        active = self.active
+        video_playing = (active and hasattr(active, 'terminal')
+                         and hasattr(active.terminal, 'video_player')
+                         and active.terminal.video_player.playing)
+
+        if not video_playing and self.screensaver.update():
+            self.screensaver.render(surface)
+            self.renderer.apply_effects()
+            pygame.display.flip()
+            return
+
         surface.fill(cfg.COLOR_BG)
 
-        active = self.active
         if active:
             active.render()
 
